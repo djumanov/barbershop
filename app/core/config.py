@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "barbershop"
+    environment: Literal["development", "production"] = "development"
     debug: bool = False
 
     # PostgreSQL
@@ -41,6 +43,14 @@ class Settings(BaseSettings):
     celery_broker_url: str = "amqp://guest:guest@localhost:5672//"
     celery_result_backend: str = "redis://localhost:6379/1"
     celery_task_timeout_seconds: int = 30
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
 
     @property
     def database_url(self) -> str:
