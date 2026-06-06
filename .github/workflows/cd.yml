@@ -48,9 +48,36 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # deploy:
-  #   needs: build-push
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy
-  #       run: echo "Add your deploy step here (SSH, k8s, render, fly.io, ...)"
+  deploy:
+    name: Deploy to EC2
+    needs: build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy production compose to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose.prod.yml
+          target: ~/barbershop
+
+      - name: Pull image and restart stack on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: REGISTRY_TOKEN
+          script: |
+            set -e
+            cd ~/barbershop
+            echo "$REGISTRY_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            docker logout ghcr.io
+            docker image prune -f
