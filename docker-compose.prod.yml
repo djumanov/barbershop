@@ -1,0 +1,84 @@
+# Production stack — pulls the pre-built image from GHCR (no build, no
+# bind-mounts, no auto-reload). Used by the CD workflow's deploy job on EC2.
+#
+# Host prerequisites:
+#   - Docker Engine + compose plugin installed
+#   - ~/barbershop/.env with production values (POSTGRES_*, SECRET_KEY, ...)
+#
+# The app uses the image's gunicorn CMD; docs are disabled (ENVIRONMENT=production).
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-barbershop}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-barbershop}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/djumanov/barbershop:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports:
+      - "8000:8000"
+
+  worker:
+    image: ghcr.io/djumanov/barbershop:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      ENVIRONMENT: production
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command: celery -A app.core.celery_app:celery_app worker --loglevel=info
+
+volumes:
+  postgres_data:
