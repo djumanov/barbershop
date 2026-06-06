@@ -16,6 +16,8 @@ htmlcov
 .DS_Store
 tests
 README.md
+docs
+.claude
 Dockerfile
 docker-compose.yml
 .dockerignore
