@@ -3,18 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import Settings, get_settings
+from app.core.database import engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan.
-
-    Startup/shutdown hooks live here. The database engine disposal is
-    wired up in Phase 3 (app/core/database.py).
-    """
+    """Application lifespan: dispose the database engine on shutdown."""
     # Startup
     yield
     # Shutdown
+    await engine.dispose()
 
 
 def create_app(config: Settings | None = None) -> FastAPI:
