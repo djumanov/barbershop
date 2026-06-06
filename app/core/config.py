@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # Cache (configuration only — no cache backend wired up yet)
+    cache_enabled: bool = False
+    cache_backend: str = "memory"  # "memory" | "redis"
+    cache_ttl_seconds: int = 300
+    redis_url: str | None = None
+
+    # Background tasks (configuration only — uses FastAPI BackgroundTasks when wired)
+    background_tasks_enabled: bool = True
+    background_task_timeout_seconds: int = 30
+
     @property
     def database_url(self) -> str:
         """Async SQLAlchemy URL using the asyncpg driver."""
