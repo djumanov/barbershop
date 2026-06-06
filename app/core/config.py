@@ -29,15 +29,18 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
-    # Cache (configuration only — no cache backend wired up yet)
-    cache_enabled: bool = False
-    cache_backend: str = "memory"  # "memory" | "redis"
+    # Cache — Redis
+    cache_enabled: bool = True
     cache_ttl_seconds: int = 300
-    redis_url: str | None = None
+    redis_url: str = "redis://localhost:6379/0"
 
-    # Background tasks (configuration only — uses FastAPI BackgroundTasks when wired)
-    background_tasks_enabled: bool = True
-    background_task_timeout_seconds: int = 30
+    # Message queue — RabbitMQ
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672//"
+
+    # Background tasks — Celery (broker: RabbitMQ, result backend: Redis)
+    celery_broker_url: str = "amqp://guest:guest@localhost:5672//"
+    celery_result_backend: str = "redis://localhost:6379/1"
+    celery_task_timeout_seconds: int = 30
 
     @property
     def database_url(self) -> str:
